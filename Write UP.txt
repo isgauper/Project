@@ -1,0 +1,121 @@
+# Practical Machine Learning Course Project
+
+## Final Write Up
+
+The purpose of this project was to develop a machine learning algorithm to predict the manner 
+in which 6 particpants performed barbell lifts. 
+
+## Reading in Data
+
+First the data was downloaded from [here](http://groupware.les.inf.puc-rio.br/har) and then read into R.
+
+```{r echo = TRUE}
+library(ggplot2)
+library(caret)
+
+setwd("F:/Documents/Project Support Materials/Coursera/8. Practical Machine Learning")
+
+# note: the [2:160] skips the unneccesary 1st column that numbers each row
+
+test <- read.csv("pml-testing.csv", header = T)[2:160]
+train <- read.csv("pml-training.csv", header = T)[2:160]
+
+```
+
+## Cleaning the Data
+
+The next step was cleaning the data. 
+
+### Removing Mostly NAs
+
+Columns that contained more than 90% NAs were removed. 
+ 
+```{r echo = TRUE}
+#Calculate percent of columns that are NAs
+percent_na <- sapply(train, function(x) sum(is.na(x))/nrow(train))
+
+#get the names of columns that are less than 90 percent NAs
+names_na <- names(which(percent_na <.90))
+
+#subset by columns that aren't mostly NAs
+temp <- train[names_na]
+```
+
+### Removing mostly blank columns
+
+It was observed that columns containing "#DIV/0" had a very high proportion of blanks. These were removed from the
+training data.
+
+```{r echo = TRUE}
+#Calculate percent of columns that have "#DIV/0"
+div0 <- sapply(temp, function(x) length(grep("#DIV/0",x))/nrow(temp)) 
+
+#Get names of columns that have "#DIV/0"
+
+names.div0 <- which(div0 > 0)
+
+#look at content of columns with "DIV/0"
+
+# sapply(temp[names.div0], function(x) table[1])
+
+#Visually observe that 19216 of these are blank. Decided to remove these variables
+
+full <- temp[-names.div0]
+
+```
+
+### Split into training and testing sets
+The data was then split into training and test sets
+
+```{r echo = TRUE}
+inTrain <- createDataPartition(y=full$classe, p=.7, list = FALSE)
+
+f.train <- full[inTrain,]
+f.test <- full[-inTrain,]
+```
+
+
+## Predicting with Trees
+The "predicting with trees" method was used to build a model with the training data set, using the remaining variables. The method used was **rpart**.
+
+```{r echo = TRUE}
+
+#Build Model
+modFit.full <- train(classe ~ . , method = "rpart", data = f.train)
+
+```
+
+
+
+## Cross validation
+
+Cross validation was built into the model building, so it was unneccessary to create my own cross-validation. This can be seen in the ouput from the model fit (below) and in the
+rpart documentation.
+
+```{r echo = TRUE}
+print(modFit.full)
+```
+
+The accuracy was predicted to be `r modFit.full$results[1,2]`, so the estimated error rate was `r 1-(modFit.full$results[1,2])`.
+
+## Predicting
+
+The data that was set aside earlier was used to test the model, prior to submitting the predictions for the assignment.
+
+```{r echo = TRUE}
+#Predict
+
+pred <- predict(modFit.full, newdata = f.test)
+
+# calculate the percent of correct predictions:
+correct = length(which(f.test$classe == pred))/nrow(f.test)
+error = format((1-correct)*100,3)
+
+```
+The sample error was `r error`%.
+
+## Conclusion
+
+The final model did not predict very accurately. Trying alternative prediction methods would be valuable, such as Random Forest or Bagging. 
+These methods, however, resulted in R crashing multiple times and were abandoned.
+
